@@ -12,17 +12,15 @@ from pprint import pformat
 from termcolor import colored
 
 
-
 morphy_tag = {'NN':wordnet.NOUN,'JJ':wordnet.ADJ,'VB':wordnet.VERB,'RB':wordnet.ADV}
 listify = lambda item: item if type(item) == type([]) and item != None else list(item)
 READ = 'rb'
-directory = json.load(open('/Volumes/My Book/Toxic/dictionary.json',READ))
+directory = json.load(open('directory.json',READ))		
 
 stopwords = [word.rstrip('\r\n').strip() for word in open(directory['stopwords'],READ).readlines()]
 emoticons = [word.rstrip('\r\n').strip() for word in open(directory['emoticons'],READ).readlines()]
-punctuation = set(string.punctuation) #Can make more efficient with a translator table
-corpus = [word.rstrip('\r\n').strip().split() for word in open(directory['corpus'],READ).readlines()][0]
-freqs = FreqDist(corpus)
+punctuation = set(string.punctuation)
+
 class SemanticWord(object):
 
 	def __init__(self,word,part_of_speech,lookuptable):

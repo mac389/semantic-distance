@@ -2,10 +2,11 @@ import itertools,json,os
 
 from src.nlp.SemanticString import SemanticString
 from nltk.corpus import wordnet
-from nltk import word_tokenize, pos_tag
+from nltk import word_tokenize, pos_tag, sent_tokenize
 from progress.bar import Bar
 from optparse import OptionParser
 from random import sample
+from nltk import FreqDist
 
 import numpy as np
 
@@ -15,7 +16,7 @@ WRITE = 'wb'
 directory = json.load(open('directory.json',READ))		
 
 
-#--Command  line parsing
+#--Load input from command line
 op = OptionParser()
 op.add_option('--f', dest='corpus', type='str', help='Corpus of data on which to process semantic distance')
 op.add_option('--r', dest='random_sample',type='int',help='Percentage of sample to calculate')
@@ -29,6 +30,9 @@ if not opts.corpus:
 	opts.corpus = 'test'
 	print 'No file passed. Using test text.'
 
+corpus = open(opts.corpus,READ).read().splitlines() #Assumes each phrase occupies one line
+print list(itertools.chain.from_iterable([word_tokenize(phrase) for phrase in corpus])) 
+freqs = FreqDist(corpus)
 
 filename = os.path.join(directory['data-prefix'],'%s-similarity-matrix.npy'%(opts.corpus.split('.')[0]))
 database = json.load(open(directory['database'],READ))

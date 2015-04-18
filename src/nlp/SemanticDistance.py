@@ -14,7 +14,7 @@ class SemanticDistance(object):
 		self.filenames = {'corpus':path_to_corpus,'database':'../data/semantic-distance-database.json'}
 		self.READ = 'rb'
 		self.WRITE = 'wb'
-		self.filename = '/Volumes/My Book/Toxic/data/%s.similarity-matrix-tsv'%(self.filenames['corpus'].rstrip('.txt'))
+		self.filename = './data/%s.similarity-matrix-tsv'%(self.filenames['corpus'].rstrip('.txt'))
 		self.database = json.load(open(self.filenames['database'],self.READ))
 
 		with open(self.filenames['corpus']) as f:

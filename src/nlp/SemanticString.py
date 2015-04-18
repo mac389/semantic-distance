@@ -23,11 +23,12 @@ CONTRACTIONS3 = [re.compile(r"(?i)\b(Whad)(dd)(ya)\b"),
                  re.compile(r"(?i)\b(Wha)(t)(cha)\b")]
 
 READ = 'rb'
-directory = json.load(open('/Volumes/My Book/Toxic/dictionary.json',READ))
+
+directory = json.load(open('directory.json',READ))		
 
 stopwords = [word.rstrip('\r\n').strip() for word in open(directory['stopwords'],READ).readlines()]
 emoticons = [word.rstrip('\r\n').strip() for word in open(directory['emoticons'],READ).readlines()]
-punctuation = set(string.punctuation) #Can make more efficient with a translator table
+punctuation = set(string.punctuation) 
 
 class SemanticString(object):
 	def __init__(self, text,db):

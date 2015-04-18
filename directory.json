@@ -1,1 +1,1 @@
-{"database":"./data/semantic-distance-database.json","data-prefix":"/Volumes/My Book"}
+{"database":"./data/semantic-distance-database.json","data-prefix":"/Volumes/My Book","stopwords":"./data/stopwords","emoticons":"./data/emoticons"}
