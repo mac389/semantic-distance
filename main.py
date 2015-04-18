@@ -26,7 +26,7 @@ if len(args) > 0:
 	sys.exit(1)
 
 filename = os.path.join(directory['data-prefix'],'%s.similarity-matrix-tsv'%(opts.corpus.rstrip('.txt')))
-database = json.load(directory['database'],self.READ)
+database = json.load(directory['database'],READ)
 
 with open(opts.corpus) as f:
 	corpus = [string.strip() for string in f.readlines()]
