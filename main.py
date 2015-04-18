@@ -23,7 +23,6 @@ op.print_help()
 opts,args = op.parse_args()
 if len(args) > 0:
 	op.error('This script only takes arguments preceded by command line options.')
-	sys.exit(1)
 
 filename = os.path.join(directory['data-prefix'],'%s.similarity-matrix-tsv'%(opts.corpus.rstrip('.txt')))
 database = json.load(directory['database'],READ)
