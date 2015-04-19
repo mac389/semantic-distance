@@ -3,6 +3,8 @@ import numpy as np
 from src.analysis import visualization
 from sklearn.decomposition import PCA
 
+
+
 def load(filename):
 	data = np.memmap(filename,dtype='float32',mode='r')
 	return np.reshape(data,(np.sqrt(data.shape),-1))

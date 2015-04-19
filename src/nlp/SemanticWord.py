@@ -1,35 +1,31 @@
-import itertools
-import string
-import json
+import itertools,json
 
 import numpy as np
 
 from nltk.corpus import wordnet
+from nltk.corpus import wordnet_ic
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk import FreqDist
 
 from pprint import pformat
 from termcolor import colored
 
+from SemanticParser import SemanticParser
+
+brown_ic = wordnet_ic.ic('ic-brown.dat')
 
 morphy_tag = {'NN':wordnet.NOUN,'JJ':wordnet.ADJ,'VB':wordnet.VERB,'RB':wordnet.ADV}
 listify = lambda item: item if type(item) == type([]) and item != None else list(item)
-READ = 'rb'
-directory = json.load(open('directory.json',READ))		
 
-stopwords = [word.rstrip('\r\n').strip() for word in open(directory['stopwords'],READ).readlines()]
-emoticons = [word.rstrip('\r\n').strip() for word in open(directory['emoticons'],READ).readlines()]
-punctuation = set(string.punctuation)
+class SemanticWord(SemanticParser):
 
-class SemanticWord(object):
-
-	def __init__(self,word,part_of_speech,lookuptable):
+	def __init__(self,word,part_of_speech,db):
 		self.part_of_speech = morphy_tag[part_of_speech] if part_of_speech in morphy_tag else wordnet.NOUN
 		self.word = wordnet.morphy(word,self.part_of_speech) #Lemmatization
 
 		self.synset = listify(wordnet.synsets(word,pos=self.part_of_speech)) if self.word else None
 		self.orphan = not self.synset
-		self.db = lookuptable
+		self.db = db
 		self.lemmatizer = WordNetLemmatizer()
 		self.kernel = {}
 
@@ -63,28 +59,46 @@ class SemanticWord(object):
 		return weights
 	def lookup(self,other):
 		#construct query
+		#for second pass use Google N-grams 
+		#http://googleresearch.blogspot.com/2006/08/all-our-n-gram-are-belong-to-you.html
+		#Way to visualize semantic kernels
+		#Coverage will improve if using something better than Brown Corpus. Edinburgh Internet?
 		query = '%s-%s'%(self.word,other.word)
 		if query not in self.db:
 			transpose_query = '%s-%s'%(other.word,self.word)
 			if transpose_query in self.db:
-				self.db[query] = self.db[transpose_query]
+				return self.db[transpose_query]
 			else:
-				distance = np.zeros((len(self.synset)*len(other.synset)))
-				#one_kernel = self.calculate_weight(self.synset)
-				#two_kernel = self.calculate_weight(other.synset)
+				similarity = np.empty((len(self.synset)*len(other.synset)))
+				similarity[:] = np.nan
+
+				a_kernel = np.array([sum([lemma.count() for lemma in a.lemmas()])
+								for a in self.synset]).astype(float)
+
+				a_kernel /= a_kernel.sum()
+
+				b_kernel = np.array([sum([lemma.count() for lemma in a.lemmas()])
+								for a in other.synset]).astype(float)
+
+				b_kernel /= b_kernel.sum()
+				
 
 				for i,a in enumerate(self.synset):
+					a_weight = sum([lemma.count() for lemma in a.lemmas()])
 					for j,b in enumerate(other.synset):
-						val = min(a.path_similarity(b),b.path_similarity(a))
-						#val *= one_kernel[i] * two_kernel[j]
-						distance[i*len(other.synset)+j] = val
-				distance = np.average(distance)
-				self.db[query] = distance 
-		return self.db[query]
+							b_weight = sum([lemma.count() for lemma in b.lemmas()])
+							similarity[i*len(other.synset)+j] = a.jcn_similarity(b,brown_ic)*a_kernel[i]*b_kernel[j]
+
+				return 1-np.nanmedian(similarity)
+		else:
+			return self.db[query]
 
 	def __sub__(self,other):
-		if self.synset and other.synset and self.part_of_speech == other.part_of_speech: 
-			return 0 if self.word == other.word else self.lookup(other)
+		if self.synset and other.synset: #Not orphans
+			if set(self.synset) == set(other.synset): 
+				return 0  #Two words have identical senses
+			else:
+				return self.lookup(other)
 		else:
 			return np.nan
 

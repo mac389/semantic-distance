@@ -1,25 +1,26 @@
-import itertools,json,os
+import itertools,json,os, string
+
+import numpy as np
+import src.nlp.utils as tech
 
 from src.nlp.SemanticString import SemanticString
-from nltk.corpus import wordnet
-from nltk import word_tokenize, pos_tag, sent_tokenize
 from progress.bar import Bar
 from optparse import OptionParser
 from random import sample
-from nltk import FreqDist
-
-import numpy as np
+from nltk import FreqDist,pos_tag
 
 READ = 'rb'
 WRITE = 'wb'
-
+ERROR_CODE = -1
 directory = json.load(open('directory.json',READ))		
-
-
+stopwords = set([word.rstrip('\r\n').strip() for word in open(directory['stopwords'],READ).readlines()])
+emoticons = set([word.rstrip('\r\n').strip() for word in open(directory['emoticons'],READ).readlines()])
+punctuation = set(string.punctuation) 
+ 
 #--Load input from command line
 op = OptionParser()
 op.add_option('--f', dest='corpus', type='str', help='Corpus of data on which to process semantic distance')
-op.add_option('--r', dest='random_sample',type='int',help='Percentage of sample to calculate')
+op.add_option('--r', dest='random_sample',type='int',help='Percentage of sample to calculate',default=100)
 op.print_help()
 
 opts,args = op.parse_args()
@@ -30,43 +31,39 @@ if not opts.corpus:
 	opts.corpus = 'test'
 	print 'No file passed. Using test text.'
 
+
 corpus = open(opts.corpus,READ).read().splitlines() #Assumes each phrase occupies one line
-print list(itertools.chain.from_iterable([word_tokenize(phrase) for phrase in corpus])) 
-freqs = FreqDist(corpus)
+corpus = [[(word,pos) for word,pos in pos_tag(tech.word_tokenize(phrase)) 
+				if not any([word in verboten for verboten in [stopwords,emoticons,punctuation]])]
+				for phrase in corpus]
 
+words,_ = zip(*list(itertools.chain.from_iterable(corpus)))
+freqs = FreqDist(words)
 filename = os.path.join(directory['data-prefix'],'%s-similarity-matrix.npy'%(opts.corpus.split('.')[0]))
-database = json.load(open(directory['database'],READ))
 
-with open(opts.corpus) as f:
-	corpus = [string.strip() for string in f.readlines()]
+with open('.gitignore','a+') as f:
+	print>>f,filename
+
+database = json.load(open(directory['database'],READ))
 
 if opts.random_sample < 100:
 	corpus = sample(corpus,int(opts.random_sample/float(100)*len(corpus)))
 
-#Remove non-English tweets
-
+#Remove non-English tweets <--TODO
 print 'Creating array'
-#self.similarity = np.zeros((len(self.corpus),len(self.corpus)))
-similarity = np.memmap(filename,dtype='float32',mode='w+', shape=(len(corpus),len(corpus)))
+similarity = np.zeros((len(corpus),len(corpus)))
+#similarity = np.memmap(filename,dtype='float32',mode='w+', shape=(len(corpus),len(corpus))).astype(int)
 #TODO filter out words with low tf-idf <-- Does this make sense?
-
-
-bar = Bar('Calulating semantic distance', max=len(corpus)*(len(corpus)+1)/2)
+bar = Bar('Calulating semantic distance', max=len(corpus)*(len(corpus)-1)/2)
 for i in xrange(len(corpus)):
 	for j in xrange(i):
-
-		if corpus[i] == corpus[j]:
-			similarity[i,j] = 1
-		else:
-	 		similarity[i,j] = SemanticString(corpus[i],database) - SemanticString(corpus[j],database)
+		distance = SemanticString(corpus[i],database) - SemanticString(corpus[j],database)
+		similarity[i,j] = ERROR_CODE if np.isnan(distance) else int(1000*(distance))
  		bar.next()
-	bar.next()
 bar.finish()
 
-json.dump(database,open(directory['data-prefix'],WRITE))	
-
+json.dump(database,open(filename,WRITE))	
 similarity += similarity.transpose()
-similarity[np.diag_indices(len(corpus))] = 1
-
 #np.savetxt('%s.similarity-matrix-tsv'%(self.filenames['corpus'].rstrip('.txt')),self.M,fmt='%.04f',delimiter='\t')
-del similarity #Del also flushes a memmap to disk
+np.save(filename,similarity) #Del also flushes a memmap to disk
+print 'Saved as %s'%filename
