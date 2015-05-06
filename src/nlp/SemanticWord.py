@@ -1,15 +1,14 @@
 import itertools,json
 
 import numpy as np
+import utils as tech 
 
 from nltk.corpus import wordnet
 from nltk.corpus import wordnet_ic
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk import FreqDist
-
 from pprint import pformat
 from termcolor import colored
-
 from SemanticParser import SemanticParser
 
 brown_ic = wordnet_ic.ic('ic-brown.dat')
@@ -19,13 +18,14 @@ listify = lambda item: item if type(item) == type([]) and item != None else list
 
 class SemanticWord(SemanticParser):
 
-	def __init__(self,word,part_of_speech,db):
+	def __init__(self,word,part_of_speech,db,inspect=False):
 		self.part_of_speech = morphy_tag[part_of_speech] if part_of_speech in morphy_tag else wordnet.NOUN
 		self.word = wordnet.morphy(word,self.part_of_speech) #Lemmatization
 
 		self.synset = listify(wordnet.synsets(word,pos=self.part_of_speech)) if self.word else None
 		self.orphan = not self.synset
 		self.db = db
+		self.inspect = inspect
 		self.lemmatizer = WordNetLemmatizer()
 		self.kernel = {}
 
@@ -57,7 +57,7 @@ class SemanticWord(SemanticParser):
 			print '*********'
 
 		return weights
-	def lookup(self,other):
+	def lookup(self,other,inspect=False):
 		#construct query
 		#for second pass use Google N-grams 
 		#http://googleresearch.blogspot.com/2006/08/all-our-n-gram-are-belong-to-you.html
@@ -69,7 +69,7 @@ class SemanticWord(SemanticParser):
 			if transpose_query in self.db:
 				return self.db[transpose_query]
 			else:
-				similarity = np.empty((len(self.synset)*len(other.synset)))
+				similarity = np.empty((len(self.synset),len(other.synset)))
 				similarity[:] = np.nan
 
 				a_kernel = np.array([sum([lemma.count() for lemma in a.lemmas()])
@@ -83,13 +83,24 @@ class SemanticWord(SemanticParser):
 				b_kernel /= b_kernel.sum()
 				
 
+
 				for i,a in enumerate(self.synset):
 					a_weight = sum([lemma.count() for lemma in a.lemmas()])
 					for j,b in enumerate(other.synset):
 							b_weight = sum([lemma.count() for lemma in b.lemmas()])
-							similarity[i*len(other.synset)+j] = a.jcn_similarity(b,brown_ic)*a_kernel[i]*b_kernel[j]
+							#similarity[i,j] = a.jcn_similarity(b,brown_ic)*a_kernel[i]*b_kernel[j]
+							similarity[i,j] = a.path_similarity(b)*a_kernel[i]*b_kernel[j]
+							if inspect:
+								print 'Similarity between \n\t %s and \n\t %s \n\t\t is %.04f <-- %.04f (path similarity) * %.04f (kernel) * %.04f (kernel)'%(a.definition(),b.definition(),similarity[i,j],a.path_similarity(b),a_kernel[i],b_kernel[j])
+				if inspect:
+					row_labels = [sense.name() for sense in self.synset]
+					col_labels = [sense.name() for sense in other.synset]
 
-				return 1-np.nanmedian(similarity)
+					print ''
+					tech.print_semantic_kernel(1-similarity,col_labels=col_labels,row_labels=row_labels,
+														 col_kernel=b_kernel,row_kernel=a_kernel)
+					print ''
+				return 1-np.nanmedian(similarity.flatten())
 		else:
 			return self.db[query]
 
@@ -98,7 +109,7 @@ class SemanticWord(SemanticParser):
 			if set(self.synset) == set(other.synset): 
 				return 0  #Two words have identical senses
 			else:
-				return self.lookup(other)
+				return self.lookup(other,inspect = self.inspect)
 		else:
 			return np.nan
 

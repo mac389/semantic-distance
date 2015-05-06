@@ -30,10 +30,10 @@ emoticons = [word.rstrip('\r\n').strip() for word in open(directory['emoticons']
 punctuation = set(string.punctuation) #Can make more efficient with a translator table
 
 class SemanticString(object):
-	def __init__(self, text,db):
+	def __init__(self, text,db,inspect=False):
 		self.text = text
 		self.db=db
-
+		self.inspect = inspect
 		self.tokens = [sw.SemanticWord(token,part_of_speech,self.db) 
 						for token,part_of_speech in self.pos_tag(self.word_tokenize(text))
 						if token not in punctuation and token not in stopwords]		

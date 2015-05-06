@@ -21,6 +21,7 @@ punctuation = set(string.punctuation)
 op = OptionParser()
 op.add_option('--f', dest='corpus', type='str', help='Corpus of data on which to process semantic distance')
 op.add_option('--r', dest='random_sample',type='int',help='Percentage of sample to calculate',default=100)
+op.add_option('--i',action="store_true", dest="inspect")
 op.print_help()
 
 opts,args = op.parse_args()
@@ -54,16 +55,21 @@ print 'Creating array'
 similarity = np.zeros((len(corpus),len(corpus)))
 #similarity = np.memmap(filename,dtype='float32',mode='w+', shape=(len(corpus),len(corpus))).astype(int)
 #TODO filter out words with low tf-idf <-- Does this make sense?
-bar = Bar('Calulating semantic distance', max=len(corpus)*(len(corpus)-1)/2)
+if not opts.inspect:
+	bar = Bar('Calulating semantic distance', max=len(corpus)*(len(corpus)-1)/2)
 for i in xrange(len(corpus)):
 	for j in xrange(i):
-		distance = SemanticString(corpus[i],database) - SemanticString(corpus[j],database)
+		distance = SemanticString(corpus[i],database,inspect=opts.inspect) - SemanticString(corpus[j],database,inspect=opts.inspect)
 		similarity[i,j] = ERROR_CODE if np.isnan(distance) else int(1000*(distance))
- 		bar.next()
-bar.finish()
+ 		if not opts.inspect:
+	 		bar.next()
+if not opts.inspect:
+	bar.finish()
 
 json.dump(database,open(filename,WRITE))	
 similarity += similarity.transpose()
 #np.savetxt('%s.similarity-matrix-tsv'%(self.filenames['corpus'].rstrip('.txt')),self.M,fmt='%.04f',delimiter='\t')
 np.save(filename,similarity) #Del also flushes a memmap to disk
 print 'Saved as %s'%filename
+if opts.inspect:
+	tech.printmat(similarity,row_labels=corpus,col_labels=corpus)
