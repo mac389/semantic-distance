@@ -12,6 +12,7 @@ op = OptionParser()
 op.add_option('--t', dest='keys', type='str', help='Path of key files')
 op.add_option('--k', dest='keywords',type='str',help='Path of keywords')
 op.add_option('--o',type="str", dest="outpath")
+op.add_option('--m',type='int',dest="MAX_NUMBER_OF_TWEETS",default=100)
 op.print_help()
 
 opts,args = op.parse_args()
@@ -83,16 +84,15 @@ class listener(StreamListener):
 auth = OAuthHandler(opts.keys['twitter']['consumer_key'], opts.keys['twitter']['consumer_secret'])
 auth.set_access_token(opts.keys['twitter']['access_token'],opts.keys['twitter']['access_token_secret'])
 
-MAX_NUMBER_OF_TWEETS = 50
 TWEETS_PER_FILE = 10
-bar = Bar('Acquiring case tweets', max=MAX_NUMBER_OF_TWEETS)
+bar = Bar('Acquiring case tweets', max=opts.MAX_NUMBER_OF_TWEETS)
 
 caseStream = Stream(auth, listener(path=case_path,
-        outname='_'.join(search_terms), MAX_NUMBER_OF_TWEETS=MAX_NUMBER_OF_TWEETS,TWEETS_PER_FILE=TWEETS_PER_FILE,
+        outname='_'.join(search_terms), MAX_NUMBER_OF_TWEETS=opts.MAX_NUMBER_OF_TWEETS,TWEETS_PER_FILE=TWEETS_PER_FILE,
         progress_bar = bar))
 caseStream.filter(track=search_terms)
 
-bar = Bar('Acquiring control tweets', max=MAX_NUMBER_OF_TWEETS)
+bar = Bar('Acquiring control tweets', max=opts.MAX_NUMBER_OF_TWEETS)
 control_stream = twitter.TwitterStream(
     auth=twitter.OAuth(opts.keys['twitter']['access_token'], opts.keys['twitter']['access_token_secret'], 
         opts.keys['twitter']['consumer_key'], opts.keys['twitter']['consumer_secret']))
@@ -105,6 +105,6 @@ for tweet in iterator:
         print>>fid,tweet
         counter += 1
         bar.next()
-    if counter > MAX_NUMBER_OF_TWEETS:
+    if counter > opts.MAX_NUMBER_OF_TWEETS:
         break
 bar.finish()
