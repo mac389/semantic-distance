@@ -1,4 +1,5 @@
 keys.json
+./data/test/
 ./data/test-similarity-matrix.npy
 ./data/test-similarity-matrix.npy
 ./data/test-similarity-matrix.npy
