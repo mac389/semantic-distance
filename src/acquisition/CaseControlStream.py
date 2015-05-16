@@ -1,5 +1,6 @@
 import json,os,twitter, dropbox, gzip
 
+from datetime import datetime
 from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
@@ -64,7 +65,7 @@ class listener(StreamListener):
         all_data = json.loads(data)       
         #tweet = all_data["text"]        
         #username = all_data["user"]["screen_name"]
-        filename = os.path.join(self.path,'%s_%d'%(self.outname,self.count/self.TWEETS_PER_FILE))
+        filename = os.path.join(self.path,'%s_%s'%(self.outname,datetime.now().strftime('%Y-%m-%d-%H-%M')))
         with gzip.open(filename,"a") as fid: #This open and closes the same file a lot of times. Hack for now. 
             print>>fid,all_data
             self.count += 1 
@@ -79,23 +80,20 @@ class listener(StreamListener):
             return False
 
     def on_error(self, status):
-        print (status)
+        return True #I believe this functions like pass in a try-except blocks
+
+    def on_timeout(self):
+        return True # Don't kill the stream
 
 auth = OAuthHandler(opts.keys['twitter']['consumer_key'], opts.keys['twitter']['consumer_secret'])
 auth.set_access_token(opts.keys['twitter']['access_token'],opts.keys['twitter']['access_token_secret'])
 
-TWEETS_PER_FILE = 10
-bar = Bar('Acquiring case tweets', max=opts.MAX_NUMBER_OF_TWEETS)
-
-caseStream = Stream(auth, listener(path=case_path,
-        outname='_'.join(search_terms), MAX_NUMBER_OF_TWEETS=opts.MAX_NUMBER_OF_TWEETS,TWEETS_PER_FILE=TWEETS_PER_FILE,
-        progress_bar = bar))
-caseStream.filter(track=search_terms)
+TWEETS_PER_FILE = 10000
 
 bar = Bar('Acquiring control tweets', max=opts.MAX_NUMBER_OF_TWEETS)
 control_stream = twitter.TwitterStream(
     auth=twitter.OAuth(opts.keys['twitter']['access_token'], opts.keys['twitter']['access_token_secret'], 
-        opts.keys['twitter']['consumer_key'], opts.keys['twitter']['consumer_secret']))
+        opts.keys['twitter']['consumer_key'], opts.keys['twitter']['consumer_secret']), timeout=False, heartbeat_timeout=1000000)
 iterator = control_stream.statuses.sample()
 counter = 0
 
@@ -108,3 +106,12 @@ for tweet in iterator:
     if counter > opts.MAX_NUMBER_OF_TWEETS:
         break
 bar.finish()
+
+try:
+    bar = Bar('Acquiring case tweets', max=opts.MAX_NUMBER_OF_TWEETS)
+    caseStream = Stream(auth, listener(path=case_path,
+            outname='opioid', MAX_NUMBER_OF_TWEETS=opts.MAX_NUMBER_OF_TWEETS,TWEETS_PER_FILE=TWEETS_PER_FILE,
+            progress_bar = bar)) 
+    caseStream.filter(track=search_terms)
+except Exception as e:
+    print e
